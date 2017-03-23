@@ -15,6 +15,149 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
 DOCUMENTATION = '''
+---
+module: dnsmadeeasy_failover
+short_description: DNSMadeEasy monitor and failover interface extending the DNSMadeEasy module from "Brice Burgess (@briceburg)"
+description:
+  - "Manages DNS monitor and failover 'records' via the v2 REST API of DNSMadeEasy."
+options:
+  account_key:
+    description:
+      - Account API Key.
+    required: true
+    default: null
+  account_secret:
+    description:
+      - Account Secret Key.
+    required: true
+    default: null
+  domain:
+    description:
+      - Domain to work with. Can be the domain name (e.g. "mydomain.com") or the numeric ID of the domain in DNS Made Easy (e.g. "839989") for faster resolution.
+    required: true
+    default: null
+  record_name:
+    description:
+      - Record name to get/create/delete/update. If record_name is not specified; all records for the domain will be returned in "result" regardless of the state argument.
+    required: false
+    default: null
+  record_value:
+    description:
+      - "Record value. HTTPRED: <redirection URL>, MX: <priority> <target name>, NS: <name server>, PTR: <target name>, SRV: <priority> <weight> <port> <target name>, TXT: <text value>"
+      - "If record_value is not specified; no changes will be made and the record will be returned in 'result' (in other words, this module can be used to fetch a record's current id, type, and ttl)"
+    required: false
+    default: null
+  state:
+    description:
+      - whether the record should exist or not
+    required: true
+    choices: [ 'present', 'absent' ]
+    default: null
+  validate_certs:
+    description:
+      - If C(no), SSL certificates will not be validated. This should only be used
+        on personally controlled sites using self-signed certificates.
+    required: false
+    default: 'yes'
+    choices: ['yes', 'no']
+  monitor:
+    description:
+      - If true, add or change the monitor
+    required: true
+    default: 'no'
+    choices: ['yes', 'no']
+  systemDescription:
+    description:
+      - Description used in failover notification
+    required: true
+    default: ''
+  maxEmails:
+    description:
+      - Number of emails sent to the contact for a failover event
+    required: true
+    default: 1
+  protocol:
+    description:
+      - Monitor protocol
+    required: true
+    default: 'HTTP'
+    choices: ['TCP', 'UDP', 'HTTP', 'DNS', 'SMTP', 'HTTPS']
+  port:
+    description:
+      - Monitor port
+    required: true
+    default: 80
+  sensitivity:
+    description:
+      - Number of checks the monitor performs before a failover occurs
+      - Low = 8, Medium = 5, High = 3
+    required: true
+    default: 'Medium'
+    choices: ['Low', 'Medium', 'High']
+  contactList:
+    description:
+      - Name or id of the contact list that the monitor will email on failover
+      - The default (or '') means the Account Owner
+    required: true
+    default: ''
+  httpFqdn:
+    description:
+      - The fully qualified domain name to monitor for HTTP or HTTPS monitors
+    required: false
+  httpFile:
+    description:
+      - The file to query for HTTP or HTTPS monitors
+    required: false
+  httpQueryString:
+    description:
+      - The string to query for HTTP or HTTPS monitors
+    required: False
+  failover:
+    description:
+      - If true, add or change the failover
+    required: true
+    default: 'no'
+    choices: ['yes', 'no']
+  autoFailover:
+    description:
+      - If true, fallback to the primary IP address is manual
+      - If false, fallback to the primary IP address is automatic
+    required: true
+    default: 'no'
+    choices: ['yes', 'no']
+  ip1:
+    description:
+      - Primary IP address
+      - Required if adding or changing the monitor or failover
+    required: false
+  ip2:
+    description:
+      - Secondary IP address
+      - Required if adding or changing the failover
+    required: false
+  ip3:
+    description:
+      - Tertiary IP address
+    required: false
+  ip4:
+    description:
+      - Quaternary IP address
+    required: false
+  ip5:
+    description:
+      - Quinary IP address
+    required: false
+
+notes:
+  - This module extends the DME2 module and uses many of the same options.
+  - This module returns the monitor in the "result" element when 'state' is 'present'.
+  - Only A records can have a monitor or failover.
+  - DNSMadeEasy conflates some monitor and failover options.
+  - To add failover, the 'failover', 'autoFailover', 'port', 'protocol', 'ip1', and 'ip2' options are required.
+  - To add monitor, the 'monitor', 'port', 'protocol', 'maxEmails', 'systemDescription', and 'ip1' options are required.
+  - The monitor and the failover will share 'port', 'protocol', and 'ip1' options.
+
+requirements: [ hashlib, hmac, DME2 ]
 '''
 
 EXAMPLES = '''
@@ -155,7 +298,6 @@ def main():
             protocol=dict(default='HTTP', choices=['TCP', 'UDP', 'HTTP', 'DNS', 'SMTP', 'HTTPS']),
             port=dict(default=80, type='int'),
             sensitivity=dict(default='Medium', choices=['Low', 'Medium', 'High']),
-            #contactListId=dict(required=False),
             contactList=dict(default=''),
             httpFqdn=dict(required=False),
             httpFile=dict(required=False),
@@ -242,12 +384,10 @@ def main():
 
         # create the monitor (which is really updating an existing but near-empty resource)
         if not current_monitor:
-            #module.fail_json(msg=new_monitor)
             monitor = DME.updateMonitor(current_record['id'], DME.prepareMonitor(new_monitor))
             module.exit_json(changed=True, result=monitor)
 
         if changed:
-            #module.fail_json(msg=new_monitor)
             DME.updateMonitor(current_monitor['recordId'], DME.prepareMonitor(new_monitor))
             module.exit_json(changed=True, result=new_monitor)
 

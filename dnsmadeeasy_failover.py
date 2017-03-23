@@ -353,18 +353,22 @@ def main():
               'failover', 'autoFailover', 'ip1', 'ip2', 'ip3', 'ip4', 'ip5']:
         if module.params[i] is not None:
             if i == 'protocol':
+                # The API requires protocol to be a numeric in the range 1-6
                 new_monitor['protocolId'] = protocols[module.params[i]]
             elif i == 'sensitivity':
+                # The API requires sensitivity to be a numeric of 8, 5, or 3
                 new_monitor[i] = sensitivities[module.params[i]]
             elif i == 'contactList':
+                # The module accepts either the name or the id of the contact list
                 contact_list_id = module.params[i]
-                if not module.params[i].isdigit() and module.params[i] != '':
-                    contact_list = DME.getContactListByName(module.params[i])
+                if not contact_list_id.isdigit() and contact_list_id != '':
+                    contact_list = DME.getContactListByName(contact_list_id)
                     if not contact_list:
                         module.fail_json(msg="Contact list {} does not exist".format(contact_list_id))
                     contact_list_id = contact_list.get('id', '')
                 new_monitor['contactListId'] = contact_list_id
             else:
+                # The module option names match the API field names
                 new_monitor[i] = module.params[i]
 
     changed = False
@@ -372,9 +376,12 @@ def main():
         for i in new_monitor:
             if str(current_monitor.get(i)) != str(new_monitor[i]):
                 changed = True
+        # There's no need to require the recordId in the module, so we'll assume the user means the record that matches
+        # the domain and value.
         new_monitor['recordId'] = current_monitor['recordId']
 
     if state == 'present':
+        # Either or both failover and monitor may be defined, but at least one must be defined
         if not (new_monitor.get('failover') or new_monitor.get('monitor')):
             if not current_monitor:
                 module.fail_json(
@@ -387,6 +394,7 @@ def main():
             monitor = DME.updateMonitor(current_record['id'], DME.prepareMonitor(new_monitor))
             module.exit_json(changed=True, result=monitor)
 
+        # apply changes
         if changed:
             DME.updateMonitor(current_monitor['recordId'], DME.prepareMonitor(new_monitor))
             module.exit_json(changed=True, result=new_monitor)

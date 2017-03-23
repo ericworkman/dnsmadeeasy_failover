@@ -45,6 +45,7 @@ class DME2Failover(DME2):
         self.record_map = None      # ["record_name"] => ID
         self.records = None         # ["record_ID"] => <record>
         self.all_records = None
+        self.contactList_map = None
 
         # Lookup the domain ID if passed as a domain name vs. ID
         if not self.domain.isdigit():
@@ -52,6 +53,7 @@ class DME2Failover(DME2):
 
         self.record_url = 'dns/managed/' + str(self.domain) + '/records'
         self.monitor_url = 'monitor'
+        self.contactList_url = 'contactList'
 
     def getMonitor(self, record_id):
         return self.query(self.monitor_url + '/' + str(record_id), 'GET')
@@ -61,6 +63,21 @@ class DME2Failover(DME2):
 
     def prepareMonitor(self, data):
         return json.dumps(data, separators=(',', ':'))
+
+    def getContactList(self, contact_list_id):
+        if not self.contactList_map:
+            self._instMap('contactList')
+
+        return self.contactLists.get(contact_list_id, False)
+
+    def getContactlists(self):
+        return self.query(self.contactList_url, 'GET')['data']
+
+    def getContactListByName(self, name):
+        if not self.contactList_map:
+            self._instMap('contactList')
+
+        return self.getContactList(self.contactList_map.get(name, 0))
 
 
 def main():
@@ -78,7 +95,8 @@ def main():
             protocol=dict(default='HTTP', choices=['TCP', 'UDP', 'HTTP', 'DNS', 'SMTP', 'HTTPS']),
             port=dict(default=80, type='int'),
             sensitivity=dict(default='Medium', choices=['Low', 'Medium', 'High']),
-            contactListId=dict(required=False),
+            #contactListId=dict(required=False),
+            contactList=dict(default=''),
             failover=dict(defaults='no', type='bool'),
             autoFailover=dict(defaults='no', type='bool'),
             ip1=dict(required=False),
@@ -100,8 +118,10 @@ def main():
     protocols = {'TCP': 1, 'UDP': 2, 'HTTP': 3, 'DNS': 4, 'SMTP': 5, 'HTTPS': 6}
     sensitivities = {'Low': 8, 'Medium': 5, 'High': 3}
 
-    DME = DME2Failover(module.params["account_key"], module.params[
-               "account_secret"], module.params["domain"], module)
+    DME = DME2Failover(module.params["account_key"],
+                       module.params["account_secret"],
+                       module.params["domain"],
+                       module)
 
     state = module.params["state"]
     record_name = module.params["record_name"]
@@ -123,13 +143,21 @@ def main():
         current_monitor = DME.getMonitor(current_record['id'])
 
     new_monitor = {}
-    for i in ['monitor', 'systemDescription', 'protocol', 'port', 'sensitivity', 'contactListId',
+    for i in ['monitor', 'systemDescription', 'protocol', 'port', 'sensitivity', 'maxEmails', 'contactList',
               'failover', 'autoFailover', 'ip1', 'ip2', 'ip3', 'ip4', 'ip5']:
         if module.params[i] is not None:
             if i == 'protocol':
                 new_monitor['protocolId'] = protocols[module.params[i]]
             elif i == 'sensitivity':
                 new_monitor[i] = sensitivities[module.params[i]]
+            elif i == 'contactList':
+                contact_list_id = module.params[i]
+                if not module.params[i].isdigit() and module.params[i] != '':
+                    contact_list = DME.getContactListByName(module.params[i])
+                    if not contact_list:
+                        module.fail_json(msg="Contact list {} does not exist".format(contact_list_id))
+                    contact_list_id = contact_list.get('id', '')
+                new_monitor['contactListId'] = contact_list_id
             else:
                 new_monitor[i] = module.params[i]
 
@@ -150,6 +178,7 @@ def main():
 
         # create the monitor (which is really updating an existing but near-empty resource)
         if not current_monitor:
+            #module.fail_json(msg=new_monitor)
             monitor = DME.updateMonitor(current_record['id'], DME.prepareMonitor(new_monitor))
             module.exit_json(changed=True, result=monitor)
 

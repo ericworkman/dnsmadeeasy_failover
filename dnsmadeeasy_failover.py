@@ -58,6 +58,9 @@ EXAMPLES = '''
     maxEmails: 1
     systemDescription: "Monitor Test A record"
     contactList: 1174  # contact list id
+    httpFqdn: http://foo.bar
+    httpFile: example
+    httpQueryString: failed
 
 '''
 
@@ -140,6 +143,9 @@ def main():
             sensitivity=dict(default='Medium', choices=['Low', 'Medium', 'High']),
             #contactListId=dict(required=False),
             contactList=dict(default=''),
+            httpFqdn=dict(required=False),
+            httpFile=dict(required=False),
+            httpQueryString=dict(required=False),
             failover=dict(defaults='no', type='bool'),
             autoFailover=dict(defaults='no', type='bool'),
             ip1=dict(required=False),
@@ -186,7 +192,8 @@ def main():
         current_monitor = DME.getMonitor(current_record['id'])
 
     new_monitor = {}
-    for i in ['monitor', 'systemDescription', 'protocol', 'port', 'sensitivity', 'maxEmails', 'contactList',
+    for i in ['monitor', 'systemDescription', 'protocol', 'port', 'sensitivity', 'maxEmails',
+              'contactList', 'httpFqdn', 'httpFile', 'httpQueryString',
               'failover', 'autoFailover', 'ip1', 'ip2', 'ip3', 'ip4', 'ip5']:
         if module.params[i] is not None:
             if i == 'protocol':

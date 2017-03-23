@@ -5,8 +5,7 @@ DOCUMENTATION = '''
 
 EXAMPLES = '''
 # Add a failover "record"
-- name: dnsmadeeasy failover
-  dnsmadeeasy_failover:
+- dnsmadeeasy_failover:
     account_key: key
     account_secret: secret
     domain: foo.bar
@@ -16,6 +15,50 @@ EXAMPLES = '''
     failover: True
     ip1: 127.0.0.1
     ip2: 127.0.0.2
+
+- dnsmadeeasy_failover:
+    account_key: key
+    account_secret: secret
+    domain: foo.bar
+    state: present
+    record_name: test
+    record_value: 127.0.0.1
+    failover: True
+    ip1: 127.0.0.1
+    ip2: 127.0.0.2
+    ip3: 127.0.0.3
+    ip4: 127.0.0.4
+    ip5: 127.0.0.5
+
+# Add a monitor "record"
+- dnsmadeeasy_failover:
+    account_key: key
+    account_secret: secret
+    domain: foo.bar
+    state: present
+    record_name: test
+    record_value: 127.0.0.1
+    monitor: yes
+    ip1: 127.0.0.1
+    protocol: HTTP  # default
+    port: 80  # default
+    maxEmails: 1
+    systemDescription: "Monitor Test A record"
+    contactList: my contact list
+
+- dnsmadeeasy_failover:
+    account_key: key
+    account_secret: secret
+    domain: foo.bar
+    state: present
+    record_name: test
+    record_value: 127.0.0.1
+    monitor: yes
+    ip1: 127.0.0.1
+    maxEmails: 1
+    systemDescription: "Monitor Test A record"
+    contactList: 1174  # contact list id
+
 '''
 
 
